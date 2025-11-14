@@ -388,6 +388,28 @@ local function check_server_info_disclosure(http_response)
   return server_alerts
 end
 
+-- Function to check if wildcards are included in domains
+-- @param cert The certificate object
+-- @param alerts The alerts table to store findings
+-- @return list of domains which used wildcards
+local function wildcard_included(cert, alerts)
+  local wildcard_findings = {}
+  
+  if cert.subject.commonName and string.find(cert.subject.commonName, "%*") then
+    table.insert(wildcard_findings, cert.subject.commonName)
+  end
+  
+  -- check SAN for wildcards
+  if cert.extensions and cert.extensions.subjectAltName then
+    for _, san in ipairs(cert.extensions.subjectAltName) do
+      if string.find(san, "%*") then
+        table.insert(wildcard_findings, san)
+      end
+    end
+  end
+  return wildcard_findings
+end
+
 -- Function to check domain name matching
 -- @param host_name The host name to check
 -- @param cert The certificate object
@@ -1088,7 +1110,11 @@ end
 -- TO DO
 
 -- Wildcard Certificate Scope
--- TO DO
+local wildcard_findings = wildcard_included(cert, alerts)
+if #wildcard_findings > 0 then
+    local alert_message = "Wildcard certificate scope: The following domains use wildcards: " .. table.concat(wildcard_findings, ", ")
+    table.insert(alerts.low, alert_message)
+end
 
 -- CN and SAN Attributes
 local cn_and_san_compatible, reason = cn_and_san_compatibility(cert)
