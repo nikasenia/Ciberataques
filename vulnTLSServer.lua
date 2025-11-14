@@ -388,6 +388,29 @@ local function check_server_info_disclosure(http_response)
   return server_alerts
 end
 
+-- Function to check domain name matching
+-- @param host_name The host name to check
+-- @param cert The certificate object
+-- @return true if CN exists and present in SAN, false and reason otherwise
+local function cn_and_san_compatibility(cert)
+  local cn = cert.subject.commonName
+  if not cn then
+    return false, string.format("CN and SAN Attributes: Common Name is empty or nil.")
+  end
+
+
+  if cert.extensions and cert.extensions.subjectAltName then
+    for _, san in ipairs(cert.extensions.subjectAltName) do
+      if cn == san then
+        return true, nil
+      end
+    end
+  end
+
+  return false, string.format("CN and SAN Attributes: CN %s is not included in the SAN.", cn)
+  
+end
+
 -- Down here is from the ssl-enum-ciphers script ----------------------------------------------------------------
 local function ctx_log(level, protocol, fmt, ...)
   return stdnse.debug(level, "(%s) " .. fmt, protocol, ...)
@@ -985,11 +1008,11 @@ if cert_lifespan == -1 then
   ))
 elseif cert_lifespan < 90 then
   table.insert(alerts.medium, string.format(
-    " Certificate lifespan is %d days (less than recommended 90 days)", cert_lifespan
+    "Certificate lifespan is %d days (less than recommended 90 days)", cert_lifespan
   ))
 elseif  cert_lifespan > 366 then
   table.insert(alerts.medium, string.format(
-    " Certificate lifespan is %d days (more than recommended 366 days)", cert_lifespan
+    "Certificate lifespan is %d days (more than recommended 366 days)", cert_lifespan
   ))
 end
 
@@ -1068,7 +1091,10 @@ end
 -- TO DO
 
 -- CN and SAN Attributes
--- TO DO
+local cn_and_san_compatible, reason = cn_and_san_compatibility(cert)
+if not cn_and_san_compatible then
+  table.insert(alerts.low, reason)
+end 
 
 -- Cipher Preference
 local ciphers = find_ciphers(host, port, protocol)
