@@ -239,17 +239,6 @@ local function get_cert_lifespan_in_days(cert)
         stdnse.debug(1, " *** Debugging: Missing certificate validity data")
         return -1
     end
-    stdnse.debug(1, " *** Debugging: Not before lifespan: %d", cert.validity.notBefore.day)
-    stdnse.debug(1, " *** Debugging: Not after lifespan: %d", cert.validity.notAfter.sec)
- 
-    local_not_before_ts = os.time({
-      year=cert.validity.notBefore.year,
-      month=cert.validity.notBefore.month,
-      day=cert.validity.notBefore.day,
-      hour=cert.validity.notBefore.hour,
-      min=cert.validity.notBefore.min,
-      sec=cert.validity.notBefore.sec,
-    })
 
     local_not_after_ts = os.time({
       year=cert.validity.notAfter.year,
@@ -260,17 +249,12 @@ local function get_cert_lifespan_in_days(cert)
       sec=cert.validity.notAfter.sec,
     })
 
-    stdnse.debug(1, " *** Debugging: Not before lifespan ts: %d", local_not_before_ts)
     stdnse.debug(1, " *** Debugging: Not after lifespan ts: %d", local_not_after_ts)
 
-    if local_not_after_ts < local_not_before_ts then
-      stdnse.debug(1, " *** Debugging: The after date was lower than the before date")
-      return -1
-    end
 
-    local lifespan_days = (local_not_after_ts-local_not_before_ts)/ (24*60*60)
+    local lifespan_days = math.floor((local_not_after_ts - os.time()) / (24 * 60 * 60))
 
-    stdnse.debug(1, " *** Debugging: The lifespan in days is: %d", lifespan_days)
+    stdnse.debug(1, " *** Debugging: The days left to expire are : %f", lifespan_days)
 
     return lifespan_days
     
@@ -481,9 +465,13 @@ if cert_lifespan == -1 then
   table.insert(alerts.medium, string.format(
     "Certificate has an invalid lifespan."
   ))
-elseif  cert_lifespan < 90 or cert_lifespan > 366 then
+elseif cert_lifespan < 90 then
   table.insert(alerts.medium, string.format(
-    "Certificates lifespan should range from 90 to 366 days: Current certificate lifespan is %d.", cert_lifespan
+    " Certificate lifespan is %d days (less than recommended 90 days)", cert_lifespan
+  ))
+elseif  cert_lifespan > 366 then
+  table.insert(alerts.medium, string.format(
+    " Certificate lifespan is %d days (more than recommended 366 days)", cert_lifespan
   ))
 end
 
