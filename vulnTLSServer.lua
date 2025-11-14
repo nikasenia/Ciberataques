@@ -347,6 +347,58 @@ local function hsts_header(host, port, path)
 
 end
 
+-- Function to check for server information disclosure in HTTP headers
+-- @param http_response The HTTP response object
+-- @return table with alerts if version information found
+local function check_server_info_disclosure(http_response)
+  local server_alerts = {}
+  
+  if not http_response or not http_response.header then
+    return server_alerts
+  end
+
+  -- Common headers that may contain version information
+  local version_headers = {
+    "server",
+    "x-powered-by", 
+    "x-aspnet-version",
+    "x-aspnetmvc-version",
+    "x-runtime",
+    "x-version"
+  }
+
+  -- Patterns to detect version numbers
+  local version_patterns = {
+    "%d+%.%d+",        -- Basic version pattern (X.X)
+    "%d+%.%d+%.%d+",   -- Three-part version (X.X.X)
+    "%d+%.%d+%.%d+%.%d+", -- Four-part version (X.X.X.X)
+    "v%d+",            -- vX format
+    "version%s+%d+"    -- "version X" format
+  }
+
+  for _, header_name in ipairs(version_headers) do
+    local header_value = http_response.header[header_name]
+    if header_value then
+      stdnse.debug(1, " *** Debugging: Found %s header: %s", header_name, header_value)
+      
+      -- Check if header contains version numbers
+      for _, pattern in ipairs(version_patterns) do
+        local version_match = string.match(string.lower(header_value), pattern)
+        if version_match then
+          table.insert(server_alerts, {
+            header = header_name,
+            value = header_value,
+            version = version_match
+          })
+          break  -- Found a version in this header, move to next header
+        end
+      end
+    end
+  end
+
+  return server_alerts
+end
+
 
 -- https://nmap.org/nsedoc/lib/sslcert.html
 action = function(host, port)
@@ -491,7 +543,15 @@ else
 end
 
 -- Server Information Disclosure
--- TO DO
+local server_info_alerts = check_server_info_disclosure(http_response)
+if #server_info_alerts > 0 then
+  for _, alert in ipairs(server_info_alerts) do
+    table.insert(alerts.medium, string.format(
+      "Server information disclosure in %s header: %s (version: %s)", 
+      alert.header, alert.value, alert.version
+    ))
+  end
+end
 
 -- TLS Curves
 -- TO DO
