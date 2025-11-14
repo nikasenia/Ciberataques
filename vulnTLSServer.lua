@@ -338,7 +338,6 @@ end
 -- @return the header if exists and nil if not
 local function hsts_header(host, port, path)
   if http_response and http_response.header and http_response.header['strict-transport-security'] then
-    stdnse.debug(1, " *** Debugging: Header: Strict-Transport-Security: %s, Status: %s", http_response.header['strict-transport-security'])
     return http_response.header['strict-transport-security']
   elseif shortport.ssl(host,port) then
     stdnse.debug(1, " *** Debugging:  HSTS not configured in HTTPS Server ***********")
