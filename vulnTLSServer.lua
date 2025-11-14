@@ -192,22 +192,23 @@ end
 
 -- Function to check for IP addresses in certificate
 -- @param cert The certificate object
--- @return true and alert message if IP found, false otherwise
+-- @return the list of IP addresses found in CN or SAN
 local function contains_ip(cert)
-  if cert.subject and cert.subject.commonName and 
-     is_ip(cert.subject.commonName) then
-    return true, string.format("Certificate common name is an IP address: %s", cert.subject.commonName)
+  local ip_findings = {}
+
+  if cert.subject and cert.subject.commonName and is_ip(cert.subject.commonName) then
+    table.insert(ip_findings, cert.subject.commonName)
   end
 
   if cert.extensions and cert.extensions.subjectAltName then
     for _, san in ipairs(cert.extensions.subjectAltName) do
       if is_ip(san) then
-        return true, string.format("Certificate SAN contains an IP address: %s", san)
+        table.insert(ip_findings, san)
       end 
     end
   end
 
-  return false, nil
+  return ip_findings
 end
 
 -- Function to validate certificate type and key size
@@ -1056,9 +1057,10 @@ if non_qualified then
 end
 
 -- Avoid IP addresses in certificate
-local has_ip, alert_msg = contains_ip(cert)
-if has_ip then
-  table.insert(alerts.low, alert_msg)
+local ip_findings = contains_ip(cert)
+if #ip_findings > 0 then
+    local alert_message = "Certificate contains IP addresses in CN or SAN: " .. table.concat(ip_findings, ", ")
+    table.insert(alerts.low, alert_message)
 end
 
 -- ====================================
@@ -1112,7 +1114,7 @@ end
 -- Wildcard Certificate Scope
 local wildcard_findings = wildcard_included(cert, alerts)
 if #wildcard_findings > 0 then
-    local alert_message = "Wildcard certificate scope: The following domains use wildcards: " .. table.concat(wildcard_findings, ", ")
+    local alert_message = "Wildcard certificate scope: The following domains in CN or SAN use wildcards: " .. table.concat(wildcard_findings, ", ")
     table.insert(alerts.low, alert_message)
 end
 
