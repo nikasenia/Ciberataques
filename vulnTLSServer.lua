@@ -165,22 +165,23 @@ end
 -- @param cert The certificate object
 -- @return true and alert message if non-qualified host found, false otherwise
 local function is_non_qualified_host(cert)
+  local non_qualified_findings = {}
   if cert.subject.commonName then
     local cn = cert.subject.commonName
     if not string.find(cn, "%.") then
-      return true, string.format("Non-qualified host name in certificate CN: %s", cn)
+      table.insert(non_qualified_findings, cn)
     end
   end
 
   if cert.extensions and cert.extensions.subjectAltName then
     for _, san in ipairs(cert.extensions.subjectAltName) do
       if not string.find(san, "%.") then
-        return true, string.format("Non-qualified host name in certificate SAN: %s", san)
+        table.insert(non_qualified_findings, san)
       end 
     end
   end
 
-  return false, nil
+  return non_qualified_findings
 end
 
 -- Function to check if a name is an IP address
@@ -1051,9 +1052,10 @@ end
 -- ====================================
 
 -- Avoid non-qualified host names in certificate
-local non_qualified, alert_msg = is_non_qualified_host(cert)
-if non_qualified then
-  table.insert(alerts.low, alert_msg)
+local non_qualified_hosts_list = is_non_qualified_host(cert)
+if #non_qualified_hosts_list > 0 then
+  local alert_message = "Certificate contains non-qualified host names in CN or SAN: " .. table.concat(non_qualified_hosts_list, ", ")
+  table.insert(alerts.low, alert_message)
 end
 
 -- Avoid IP addresses in certificate
