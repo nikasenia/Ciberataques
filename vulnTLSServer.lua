@@ -109,7 +109,7 @@ local function get_TLS_info(host, port)
 
     status, sock = specialized(host, port)
     if not status then 
-      stdnse.debug(1, "Failed to connect: %s", sock)
+      stdnse.debug(1, " *** Debugging:  Failed to connect: %s ***********", sock)
       return nil
     end
 
@@ -142,14 +142,19 @@ local function get_TLS_info(host, port)
   local response
   status, response, error = tls.record_buffer(sock)
   sock:close()
-
+  
   if not status then
+    stdnse.debug(1, " *** Debugging:  Empty Server Response: %s ***********", response)
     return nil
   end
 
   -- Now let's parse the response to extract TLS info
   local i, record = tls.record_read(response, 1)
   if not record or record.type ~= "handshake" then
+    stdnse.debug(1, " *** Debugging:  Error with TLS Response record.type: %s ***********", record.type)
+    for k,v in pairs(record.body[1]) do
+      stdnse.debug(1, " *** Debugging:  record key: %s | record value: %s ***********", k, v)
+    end
     return nil
   end
 
@@ -157,6 +162,7 @@ local function get_TLS_info(host, port)
     return record.body[1]
   end
 
+  stdnse.debug(1, " *** Debugging:  Empty TLS Handshake Response: %s ***********", record)
   return nil
 
 end
@@ -165,23 +171,22 @@ end
 -- @param cert The certificate object
 -- @return true and alert message if non-qualified host found, false otherwise
 local function is_non_qualified_host(cert)
-  local non_qualified_findings = {}
   if cert.subject.commonName then
     local cn = cert.subject.commonName
     if not string.find(cn, "%.") then
-      table.insert(non_qualified_findings, cn)
+      return true, string.format("Non-qualified host name in certificate CN: %s", cn)
     end
   end
 
   if cert.extensions and cert.extensions.subjectAltName then
     for _, san in ipairs(cert.extensions.subjectAltName) do
       if not string.find(san, "%.") then
-        table.insert(non_qualified_findings, san)
+        return true, string.format("Non-qualified host name in certificate SAN: %s", san)
       end 
     end
   end
 
-  return non_qualified_findings
+  return false, nil
 end
 
 -- Function to check if a name is an IP address
@@ -951,6 +956,9 @@ end
 -- https://nmap.org/nsedoc/lib/sslcert.html
 action = function(host, port)
 
+  stdnse.debug(1, " *** Debugging:  STARTING PROCESS ***********")
+
+
   -- 1. Obtain certificate information
 
   local status, cert = sslcert.getCertificate(host, port)
@@ -1052,10 +1060,9 @@ end
 -- ====================================
 
 -- Avoid non-qualified host names in certificate
-local non_qualified_hosts_list = is_non_qualified_host(cert)
-if #non_qualified_hosts_list > 0 then
-  local alert_message = "Certificate contains non-qualified host names in CN or SAN: " .. table.concat(non_qualified_hosts_list, ", ")
-  table.insert(alerts.low, alert_message)
+local non_qualified, alert_msg = is_non_qualified_host(cert)
+if non_qualified then
+  table.insert(alerts.low, alert_msg)
 end
 
 -- Avoid IP addresses in certificate
