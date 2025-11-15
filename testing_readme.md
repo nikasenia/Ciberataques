@@ -17,8 +17,7 @@ The script inspects:
   - Image: `tc_labi_apache:latest` (from `tc_labi_apache.tar` in `~/Downloads`).
 - **Metasploitable2** VM (with secure Apache and virtual hosts on 443/9443).
 - Optional:
-  - `Wireshark` or `tcpdump` to capture traffic.
-  - Browser to check `http://localhost:8888` and `https://localhost:8443`.
+  - Browser to check `http://localhost:7001`, `https://localhost:8443`, ...
 
 ---
 

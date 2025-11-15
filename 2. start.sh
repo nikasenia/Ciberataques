@@ -38,7 +38,7 @@ SSL_CONFIG="ssl-config.conf"
 
 # Container paths
 CONTAINER_CERTS_DIR="/etc/ssl/my_certs"
-CONTAINER_APACHE_CONF="/etc/apache2/sites-enabled/my_ssl.conf"
+CONTAINER_APACHE_CONF="/etc/apache2/sites-enabled/my-ssl.conf"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Docker Apache Container Setup${NC}"
@@ -167,8 +167,15 @@ echo -e "${YELLOW}[8/9] Copying SSL configuration to container...${NC}"
 # Copy SSL config
 docker cp "$SSL_CONFIG" "$CONTAINER_NAME:$CONTAINER_APACHE_CONF"
 
+# Configure Apache to listen on all required ports
+echo -e "${BLUE}Configuring Apache to listen on ports 7001-7004...${NC}"
+docker exec "$CONTAINER_NAME" sh -c "grep -q 'Listen 7001' /etc/apache2/ports.conf || echo 'Listen 7001' >> /etc/apache2/ports.conf"
+docker exec "$CONTAINER_NAME" sh -c "grep -q 'Listen 7002' /etc/apache2/ports.conf || echo 'Listen 7002' >> /etc/apache2/ports.conf"
+docker exec "$CONTAINER_NAME" sh -c "grep -q 'Listen 7003' /etc/apache2/ports.conf || echo 'Listen 7003' >> /etc/apache2/ports.conf"
+docker exec "$CONTAINER_NAME" sh -c "grep -q 'Listen 7004' /etc/apache2/ports.conf || echo 'Listen 7004' >> /etc/apache2/ports.conf"
+
 # Enable the SSL configuration
-docker exec "$CONTAINER_NAME" a2ensite ssl-vhosts.conf 2>/dev/null || true
+docker exec "$CONTAINER_NAME" a2ensite my-ssl.conf 2>/dev/null || true
 
 # Enable required Apache modules
 docker exec "$CONTAINER_NAME" a2enmod ssl 2>/dev/null || true
@@ -184,16 +191,31 @@ echo ""
 echo -e "${YELLOW}[9/9] Testing Apache configuration and restarting...${NC}"
 
 # Test configuration
-if docker exec "$CONTAINER_NAME" apachectl configtest 2>&1 | grep -q "Syntax OK"; then
+CONFIG_TEST=$(docker exec "$CONTAINER_NAME" apachectl configtest 2>&1)
+if echo "$CONFIG_TEST" | grep -q "Syntax OK"; then
     echo -e "${GREEN}✓ Apache configuration is valid${NC}"
     
     # Restart Apache
     docker exec "$CONTAINER_NAME" apachectl restart
     echo -e "${GREEN}✓ Apache restarted successfully${NC}"
+    
+    # Give Apache a moment to start
+    sleep 2
+    
+    # Verify Apache is listening on all ports
+    echo -e "${BLUE}Verifying Apache is listening on all ports...${NC}"
+    docker exec "$CONTAINER_NAME" netstat -tlnp 2>/dev/null | grep apache2 || \
+    docker exec "$CONTAINER_NAME" ss -tlnp 2>/dev/null | grep apache2 || true
+    
 else
-    echo -e "${RED}Warning: Apache configuration test failed${NC}"
-    echo -e "${YELLOW}Attempting to restart anyway...${NC}"
-    docker exec "$CONTAINER_NAME" apachectl restart || true
+    echo -e "${RED}Apache configuration test failed:${NC}"
+    echo "$CONFIG_TEST" | sed 's/^/  /'
+    echo ""
+    echo -e "${YELLOW}Showing Apache error log:${NC}"
+    docker exec "$CONTAINER_NAME" tail -20 /var/log/apache2/error.log 2>/dev/null || true
+    echo ""
+    echo -e "${RED}Please fix the configuration errors before proceeding${NC}"
+    exit 1
 fi
 echo ""
 
@@ -216,13 +238,20 @@ echo -e "    - 8443  → https://localhost:8443 (tc.uc3m.es)"
 echo -e "    - 9443  → https://localhost:9443 (internal.tc.uc3m.es)"
 echo ""
 echo -e "  ${BLUE}HTTPS (New Test VirtualHosts):${NC}"
-echo -e "    - 7001  → cert1 (Baseline Good - RSA 2048)"
-echo -e "    - 7002  → cert2 (Weak Key - RSA 1024 + Old TLS)"
-echo -e "    - 7003  → cert3 (Self-Signed + Misconfigurations)"
-echo -e "    - 7004  → cert4 (Wildcard - ECDSA P-256)"
+echo -e "    - 7001  → https://localhost:7001 (cert1: Baseline Good - RSA 2048)"
+echo -e "    - 7002  → https://localhost:7002 (cert2: Weak Key - RSA 1024)"
+echo -e "    - 7003  → https://localhost:7003 (cert3: Self-Signed)"
+echo -e "    - 7004  → https://localhost:7004 (cert4: Wildcard - ECDSA P-256)"
 echo ""
+echo -e "${YELLOW}Useful commands:${NC}"
 echo -e "  ${BLUE}# Check Apache logs inside container${NC}"
 echo -e "  docker exec $CONTAINER_NAME tail -f /var/log/apache2/error.log"
+echo ""
+echo -e "  ${BLUE}# Check which ports Apache is listening on${NC}"
+echo -e "  docker exec $CONTAINER_NAME ss -tlnp | grep apache2"
+echo ""
+echo -e "  ${BLUE}# View SSL configuration${NC}"
+echo -e "  docker exec $CONTAINER_NAME cat /etc/apache2/sites-enabled/my-ssl.conf"
 echo ""
 echo -e "  ${BLUE}# Access container shell${NC}"
 echo -e "  docker exec -it $CONTAINER_NAME /bin/bash"
