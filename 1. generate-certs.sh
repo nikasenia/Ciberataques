@@ -51,7 +51,7 @@ else
 
     echo -e "${YELLOW}[3/10] Generating CA certificate (valid for 10 years)...${NC}"
     openssl req -new -x509 -days $DAYS_CA -key "$CA_KEY" -out "$CA_CERT" \
-      -subj "/C=ES/ST=Madrid/L=Madrid/O=MyCA/CN=My Trusted CA" 2>/dev/null
+      -subj "/C=ES/ST=Malaga/L=Huelin/O=BoqueronCA/CN=my trusted boqueron ca" 2>/dev/null
 
     echo -e "${GREEN}✓ CA certificate created successfully${NC}"
 fi
@@ -70,7 +70,7 @@ else
 
     # Create CSR
     openssl req -new -key cert1-key.pem -out cert1.csr \
-      -subj "/C=ES/ST=Madrid/L=Madrid/O=Example/CN=secure.example.com" 2>/dev/null
+      -subj "/C=ES/ST=Malaga/L=Huelin/O=BoqueronSL/CN=secure.boqueron.com" 2>/dev/null
 
     # Create SAN extension file
     cat > cert1-san.ext << EOF
@@ -102,7 +102,7 @@ else
 
     # Create CSR
     openssl req -new -key cert2-key.pem -out cert2.csr \
-      -subj "/C=ES/ST=Madrid/L=Madrid/O=WeakOrg/CN=weak.example.com" 2>/dev/null
+      -subj "/C=ES/ST=Malaga/L=Huelin/O=WeakBoqueron/CN=weak.boqueron.com" 2>/dev/null
 
     # Create SAN extension file
     cat > cert2-san.ext << EOF
@@ -134,7 +134,7 @@ else
 
     # Create self-signed certificate with IP and non-qualified hostname
     openssl req -new -x509 -key cert3-key.pem -out cert3-cert.pem -days $DAYS_CERT3 \
-      -subj "/C=ES/ST=Madrid/L=Madrid/O=SelfSignedOrg/CN=192.168.1.100" \
+      -subj "/C=ES/ST=Malaga/L=Huelin/O=SelfSignedEspeto/CN=192.168.1.100" \
       -addext "subjectAltName = DNS:server,IP:192.168.1.100" 2>/dev/null
 
     echo -e "${GREEN}✓ cert3 created (Self-signed, CN=IP, non-qualified hostname in SAN)${NC}"
@@ -154,11 +154,11 @@ else
 
     # Create CSR with wildcard
     openssl req -new -key cert4-key.pem -out cert4.csr \
-      -subj "/C=ES/ST=Madrid/L=Madrid/O=WildcardOrg/CN=*.example.org" 2>/dev/null
+      -subj "/C=ES/ST=Malaga/L=Huelin/O=WildcardBoqueron/CN=*.boqueron.org" 2>/dev/null
 
     # Create SAN extension file with wildcard
     cat > cert4-san.ext << EOF
-subjectAltName = DNS:*.example.org,DNS:example.org
+subjectAltName = DNS:*.boqueron.org,DNS:boqueron.org
 basicConstraints = CA:FALSE
 keyUsage = digitalSignature
 extendedKeyUsage = serverAuth
