@@ -5,9 +5,8 @@
 
 description = [[
 This script analyzes vulnerabilities in TLS/SSL servers.
-It detects obsolete protocol versions, weak ciphers, and
-other common security vulnerabilities.
-The script doesn't perform the checks with TLS 1.3 because the tls.lua library does not support it as you can see with cat /usr/share/nmap/nselib/tls.lua
+It detects obsolete protocol versions, weak ciphers, and other common security vulnerabilities.
+Note: TLS 1.3 checks are not performed as tls.lua library doesn't support it.
 ]]
 
 ---
@@ -24,12 +23,8 @@ The script doesn't perform the checks with TLS 1.3 because the tls.lua library d
 -- |   - Self-signed certificate detected
 -- |   - Cipher includes CBC mode and SHA hash algorithm
 -- |   ****
--- |   HIGH ALERTS: 1
--- |   ****
--- |   - Unsupported TLS cipher: TLS-RSA-WITH-AES-128-CBC-SHA
--- |   ****
 
--- Import necessary libraries
+-- Libraries
 local nmap = require "nmap"
 local shortport = require "shortport"
 local stdnse = require "stdnse"
@@ -37,19 +32,17 @@ local sslcert = require "sslcert"
 local tls = require "tls"
 local http = require "http"
 
-
--- Author and license information
+-- Metadata
 author = "TO DO"
 license = "Same as Nmap--See https://nmap.org/book/man-legal.html"
 categories = {"vuln", "safe", "discovery"}
-
--- Execution rule: runs on common SSL/TLS ports
 portrule = shortport.ssl
 
+-- Constants
 local have_ssl, openssl = pcall(require,'openssl')
 local CHUNK_SIZE = 64
 
--- Type of alerts
+-- Alert storage
 local alerts = {
   critical = {},
   high = {},
@@ -57,7 +50,7 @@ local alerts = {
   low = {}
 }
 
--- Mozilla's Intermediate recommended Cipher suites
+-- Mozilla's Intermediate recommended cipher suites
 local recommended_ciphers = {
   "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
   "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
@@ -69,69 +62,49 @@ local recommended_ciphers = {
   "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
   "TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
 }
+-- ====================================
+--        Helper Functions
+-- ====================================
 
+-- ====================================
+--     Cipher Validation Functions
+-- ====================================
 
-
--- Function to check for recommended cipher
--- @param cipher_name The name of the cipher
--- @return true if the cipher is recommended, false otherwise
+-- Check if cipher is in recommended list
 local function is_cipher_recommended(cipher_name)
   if not cipher_name then return false end
-  
   for _, rec_cipher in ipairs(recommended_ciphers) do
-    if cipher_name == rec_cipher then
-      return true
-    end
+    if cipher_name == rec_cipher then return true end
   end
   return false
 end
 
--- Function to verify if a cipher uses CBC mode or SHA hash algorithm
--- @param cipher_name The name of the cipher
--- @return true if CBC or SHA is found, false otherwise
+-- Check if cipher uses CBC mode or SHA-1 hash algorithm
 local function has_cbc_or_sha(cipher_name)
   if not cipher_name then return false end
-  
-  -- Convert to uppercase for consistent matching
-  local upper_cipher = string.upper(cipher_name)
-  
-  -- Check for CBC mode
-  if string.find(upper_cipher, "CBC") then
-    return true
-  end
-  
-  -- Check for SHA-1 (various representations)
-  if string.find(upper_cipher, "SHA1") or 
-     string.find(upper_cipher, "SHA%-1") or
-     string.find(upper_cipher, "_SHA$") or  -- Matches endings like _SHA
-     string.find(upper_cipher, "_SHA_") then -- Matches middle like _SHA_
-    return true
-  end
-  
-  return false
+  local upper = string.upper(cipher_name)
+  return string.find(upper, "CBC") or 
+         string.find(upper, "SHA1") or 
+         string.find(upper, "SHA%-1") or
+         string.find(upper, "_SHA$") or 
+         string.find(upper, "_SHA_")
 end
 
--- Function to extract Subject Alternative Names from certificate
--- @param cert The certificate object
--- @return table with list of SAN entries (e.g., {"DNS:localhost", "DNS:example.com"}) or empty table
+-- ====================================
+--  Certificate Parsing Functions
+-- ====================================
+
+-- Extract Subject Alternative Names from certificate
 local function get_SAN(cert)
   local san_list = {}
+  if not cert.extensions then return san_list end
   
-  if not cert.extensions then
-    return san_list
-  end
-  
-  -- Find Subject Alternative Name extension
   for k, v in pairs(cert.extensions) do
     if type(v) == "table" then
       for k2, v2 in pairs(v) do
-        -- Look for X509v3 Subject Alternative Name
         if k2 == "name" and string.find(v2, "Subject Alternative Name") then
-          local san_value = v.value
-          if san_value then
-            -- Parse SAN value: "DNS:localhost, DNS:www.example.com, IP:192.168.1.1"
-            for san_entry in string.gmatch(san_value, "([^,]+)") do
-              -- Trim whitespace and add to list
+          if v.value then
+            for san_entry in string.gmatch(v.value, "([^,]+)") do
               san_entry = san_entry:match("^%s*(.-)%s*$")
               if san_entry ~= "" then
                 table.insert(san_list, san_entry)
@@ -143,182 +116,158 @@ local function get_SAN(cert)
       end
     end
   end
-  
   return san_list
 end
 
--- Function to check for non-qualified host names in certificate
--- @param cert The certificate object
--- @return true and alert message if non-qualified host found, false otherwise
-local function is_non_qualified_host(cert)
-  local non_qualified_findings = {}
-  if cert.subject.commonName then
-    local cn = cert.subject.commonName
-    if not string.find(cn, "%.") then
-      table.insert(non_qualified_findings, cn)
-    end
-  end
-
-  local san_list = get_SAN(cert)
-  for _, san in ipairs(san_list) do
-    -- Extract domain from DNS: or IP: prefix
-    local domain = san:match("^DNS:(.+)") or san:match("^IP:(.+)") or san
-    if not string.find(domain, "%.") then
-      table.insert(non_qualified_findings, domain)
-    end
-  end
-
-  return non_qualified_findings
-end
-
--- Function to check if a name is an IP address
--- @param name The name to check
--- @return true if it's an IP address, false otherwise
+-- Check if a name is an IP address
 local function is_ip(name)
   return string.match(name, "^%d+%.%d+%.%d+%.%d+$")
 end
 
--- Function to check for IP addresses in certificate
--- @param cert The certificate object
--- @return the list of IP addresses found in CN or SAN
-local function contains_ip(cert)
-  local ip_findings = {}
-
-  if cert.subject and cert.subject.commonName and is_ip(cert.subject.commonName) then
-    table.insert(ip_findings, cert.subject.commonName)
-  end
-
-  local san_list = get_SAN(cert)
-  for _, san in ipairs(san_list) do
-    -- Extract domain/IP from DNS: or IP: prefix
-    local value = san:match("^DNS:(.+)") or san:match("^IP:(.+)") or san
-    if is_ip(value) then
-      table.insert(ip_findings, value)
-    end
-  end
-
-  return ip_findings
+-- Extract domain value from SAN entry (removes DNS: or IP: prefix)
+local function extract_san_value(san)
+  return san:match("^DNS:(.+)") or san:match("^IP:(.+)") or san
 end
 
--- Function to validate certificate type and key size
--- @param cert The certificate object
--- @return true if valid, false and reason otherwise
-local function valid_certificate_type(cert)
-  if cert.pubkey then
-    local key_type, key_bits = string.lower(cert.pubkey.type), cert.pubkey.bits
-    if key_type == "rsa" and key_bits < 2048 then
-      return false, string.format("Weak RSA key size (minimum 2048 required): %d bits", key_bits)
-    elseif key_type == "ec" then
-      if cert.pubkey.pem and not string.lower(cert.pubkey.pem):match("prime256v1") then
-        return false, string.format("Weak EC key type (prime256v1 required): %s", cert.pubkey.pem)
-      end
-    end
-    return true, nil
-  end
-end
-
-
--- Function to check for self-signed certificate
--- @param cert The certificate object
--- @return true if self-signed, false otherwise
-local function is_self_signed(cert)
-  if cert.issuer.commonName and cert.subject.commonName then
-    return string.lower(cert.issuer.commonName) == string.lower(cert.subject.commonName)
-  end
-end
-
--- Function to check adequate certificate lifespan between 99 and 366 days
--- @param cert The certificate object
--- @return true if adequate, false otherwise
-local function get_cert_lifespan_in_days(cert)
-    if not cert.validity or not cert.validity.notAfter or not cert.validity.notBefore then
-        stdnse.debug(1, " *** Debugging: Missing certificate validity data")
-        return -1
-    end
-
-    local_not_after_ts = os.time({
-      year=cert.validity.notAfter.year,
-      month=cert.validity.notAfter.month,
-      day=cert.validity.notAfter.day,
-      hour=cert.validity.notAfter.hour,
-      min=cert.validity.notAfter.min,
-      sec=cert.validity.notAfter.sec,
-    })
-
-    stdnse.debug(1, " *** Debugging: Not after lifespan ts: %d", local_not_after_ts)
-
-
-    local lifespan_days = math.floor((local_not_after_ts - os.time()) / (24 * 60 * 60))
-
-    stdnse.debug(1, " *** Debugging: The days left to expire are : %f", lifespan_days)
-
-    return lifespan_days
-    
-end
-
--- Function to check domain name matching
--- @param host_name The host name to check
--- @param cert The certificate object
--- @return true if matches, false and reason otherwise
-local function domain_name_matching(host_name,cert)
-  if not host_name or host_name == "" then
-    return false, string.format("Domain Name Matching: Host name is empty or nil")
-  end
-  if host_name ~= cert.subject.commonName then
-    return false, string.format("Domain Name Matching: Host name %s does not match certificate CN %s", host_name, cert.subject.commonName)
+-- Check for non-qualified hostnames in certificate
+local function get_non_qualified_hosts(cert)
+  local findings = {}
+  if cert.subject.commonName and not string.find(cert.subject.commonName, "%.") then
+    table.insert(findings, cert.subject.commonName)
   end
   
-  local san_list = get_SAN(cert)
-  if #san_list > 0 then
-    local san_match = false
-    for _, san in ipairs(san_list) do
-      -- Extract domain from DNS: or IP: prefix
-      local domain = san:match("^DNS:(.+)") or san:match("^IP:(.+)") or san
-      if host_name == domain then
-        san_match = true
-        break
-      end
+  for _, san in ipairs(get_SAN(cert)) do
+    local domain = extract_san_value(san)
+    if not string.find(domain, "%.") then
+      table.insert(findings, domain)
     end
-    if not san_match then
-      return false, string.format("Domain Name Matching: Host name %s does not match any certificate SAN", host_name)
+  end
+  return findings
+end
+
+-- Check for IP addresses in certificate
+local function get_ip_addresses(cert)
+  local findings = {}
+  if cert.subject and cert.subject.commonName and is_ip(cert.subject.commonName) then
+    table.insert(findings, cert.subject.commonName)
+  end
+  
+  for _, san in ipairs(get_SAN(cert)) do
+    local value = extract_san_value(san)
+    if is_ip(value) then
+      table.insert(findings, value)
+    end
+  end
+  return findings
+end
+
+-- ====================================
+--  Certificate Validation Functions
+-- ====================================
+
+-- Validate certificate key type and size
+local function validate_certificate_key(cert)
+  if not cert.pubkey then return true, nil end
+  
+  local key_type = string.lower(cert.pubkey.type)
+  local key_bits = cert.pubkey.bits
+  
+  if key_type == "rsa" and key_bits < 2048 then
+    return false, string.format("Weak RSA key size (minimum 2048 required): %d bits", key_bits)
+  elseif key_type == "ec" and cert.pubkey.pem then
+    if not string.lower(cert.pubkey.pem):match("prime256v1") then
+      return false, string.format("Weak EC key type (prime256v1 required): %s", cert.pubkey.pem)
     end
   end
   return true, nil
 end
 
+-- Check if certificate is self-signed
+local function is_self_signed(cert)
+  return cert.issuer.commonName and cert.subject.commonName and
+         string.lower(cert.issuer.commonName) == string.lower(cert.subject.commonName)
+end
+
+-- Calculate certificate lifespan in days
+local function get_cert_lifespan_days(cert)
+  if not cert.validity or not cert.validity.notAfter or not cert.validity.notBefore then
+    stdnse.debug(1, "[DEBUG] Missing certificate validity data")
+    return -1
+  end
+  
+  local not_after_ts = os.time({
+    year = cert.validity.notAfter.year,
+    month = cert.validity.notAfter.month,
+    day = cert.validity.notAfter.day,
+    hour = cert.validity.notAfter.hour,
+    min = cert.validity.notAfter.min,
+    sec = cert.validity.notAfter.sec,
+  })
+  
+  local lifespan_days = math.floor((not_after_ts - os.time()) / 86400)
+  stdnse.debug(1, "[DEBUG] Certificate expires in %d days", lifespan_days)
+  return lifespan_days
+end
+
+-- Check domain name matching
+local function validate_domain_match(host_name, cert)
+  if not host_name or host_name == "" then
+    return false, "Domain Name Matching: Host name is empty or nil"
+  end
+  
+  if host_name ~= cert.subject.commonName then
+    return false, string.format("Domain Name Matching: Host name %s does not match CN %s", 
+                                host_name, cert.subject.commonName)
+  end
+  
+  local san_list = get_SAN(cert)
+  if #san_list > 0 then
+    for _, san in ipairs(san_list) do
+      if host_name == extract_san_value(san) then
+        return true, nil
+      end
+    end
+    return false, string.format("Domain Name Matching: Host name %s not in SAN", host_name)
+  end
+  return true, nil
+end
+
+-- ====================================
+--    Output Formatting Functions
+-- ====================================
+
+-- Format alerts for output
 local function format_alerts(alerts_table)
   local result = {}
   local severity_levels = {
-    { key = "critical", name = "CRITICAL", debug = " *** Debugging: No critical alerts detected ***********" },
-    { key = "high", name = "HIGH", debug = " *** Debugging: No high alerts detected ***********" },
-    { key = "medium", name = "MEDIUM", debug = " *** Debugging: No medium alerts detected ***********" },
-    { key = "low", name = "LOW", debug = " *** Debugging: No low alerts detected ***********" }
+    {key = "critical", name = "CRITICAL"},
+    {key = "high", name = "HIGH"},
+    {key = "medium", name = "MEDIUM"},
+    {key = "low", name = "LOW"}
   }
-  
-  local separator = "**********************"
   
   for _, level in ipairs(severity_levels) do
     local alerts = alerts_table[level.key]
     if #alerts > 0 then
-      table.insert(result, "\n")
-      table.insert(result, separator)
+      table.insert(result, "\n**********************")
       table.insert(result, string.format("%s ALERTS: %d", level.name, #alerts))
-      table.insert(result, separator)
+      table.insert(result, "**********************")
       for _, alert in ipairs(alerts) do
         table.insert(result, "- " .. alert)
       end
       table.insert(result, "\n")
     else
-      stdnse.debug(1, level.debug)
+      stdnse.debug(1, "[DEBUG] No %s alerts detected", string.lower(level.name))
     end
   end
-  
   return result
 end
 
--- Function to check for server information disclosure in HTTP headers
--- @param http_response The HTTP response object
--- @return table with alerts if version information found
+-- ====================================
+--   HTTP Header Analysis Functions
+-- ====================================
+
+-- Check for server information disclosure in HTTP headers
 local function check_server_info_disclosure(http_response)
   local server_alerts = {}
   
@@ -348,7 +297,7 @@ local function check_server_info_disclosure(http_response)
   for _, header_name in ipairs(version_headers) do
     local header_value = http_response.header[header_name]
     if header_value then
-      stdnse.debug(1, " *** Debugging: Found %s header: %s", header_name, header_value)
+      stdnse.debug(1, "[DEBUG] Found %s header: %s", header_name, header_value)
       
       -- Check if header contains version numbers
       for _, pattern in ipairs(version_patterns) do
@@ -368,61 +317,51 @@ local function check_server_info_disclosure(http_response)
   return server_alerts
 end
 
--- Function to check if wildcards are included in domains
--- @param cert The certificate object
--- @param alerts The alerts table to store findings
--- @return list of domains which used wildcards
-local function wildcard_included(cert, alerts)
-  local wildcard_findings = {}
-  
+-- ====================================
+--   Enhanced Certificate Checks
+-- ====================================
+
+-- Check if wildcards are included in domains
+local function get_wildcard_domains(cert)
+  local findings = {}
   if cert.subject.commonName and string.find(cert.subject.commonName, "%*") then
-    table.insert(wildcard_findings, cert.subject.commonName)
+    table.insert(findings, cert.subject.commonName)
   end
   
-  -- check SAN for wildcards
-  local san_list = get_SAN(cert)
-  for _, san in ipairs(san_list) do
+  for _, san in ipairs(get_SAN(cert)) do
     if string.find(san, "%*") then
-      table.insert(wildcard_findings, san)
+      table.insert(findings, san)
     end
   end
-  
-  return wildcard_findings
+  return findings
 end
 
--- Function to check domain name matching
--- @param host_name The host name to check
--- @param cert The certificate object
--- @return true if CN exists and present in SAN, false and reason otherwise
-local function cn_and_san_compatibility(cert)
+-- Check if CN exists and is present in SAN
+local function validate_cn_san_compatibility(cert)
   local cn = cert.subject.commonName
   if not cn then
-    return false, string.format("CN and SAN Attributes: Common Name is empty or nil.")
+    return false, "[ENHANCED] CN and SAN Attributes: Common Name is empty or nil."
   end
  
   local san_list = get_SAN(cert)
-  
   if #san_list == 0 then
-    return false, string.format("CN and SAN Attributes: No Subject Alternative Name extension found.")
+    return false, "[ENHANCED] CN and SAN Attributes: No Subject Alternative Name extension found."
   end
   
-  -- Check if CN is present in SAN list
   for _, san_entry in ipairs(san_list) do
-    -- Extract domain from DNS: or IP: prefix
-    local domain = san_entry:match("^DNS:(.+)") or san_entry:match("^IP:(.+)") or san_entry
-    if domain == cn then
-      stdnse.debug(1, "   ✅ CN matches SAN entry: %s", domain)
+    if extract_san_value(san_entry) == cn then
+      stdnse.debug(1, "[DEBUG] CN matches SAN entry: %s", cn)
       return true, nil
     end
   end
-
-  return false, string.format("CN and SAN Attributes: CN %s is not included in the SAN.", cn)
-  
+  return false, string.format("[ENHANCED] CN and SAN Attributes: CN %s is not included in the SAN.", cn)
 end
 
+-- ====================================
+--  TLS Protocol Analysis Functions
+--  (Adapted from ssl-enum-ciphers)
+-- ====================================
 
-
--- Down here is from the ssl-enum-ciphers script (was a bit modified to for example not score) ----------------------------------------------------------------
 local function ctx_log(level, protocol, fmt, ...)
   return stdnse.debug(level, "(%s) " .. fmt, protocol, ...)
 end
@@ -473,6 +412,10 @@ local function in_chunks(t, size)
   end
   return ret
 end
+
+-- ====================================
+--  TLS Connection & Handshake Functions
+-- ====================================
 
 local function try_params(host, port, t)
 
@@ -568,6 +511,10 @@ local function remove(t, e)
   end
   return nil
 end
+
+-- ====================================
+--   Cipher Suite Discovery Functions
+-- ====================================
 
 -- Offer two ciphers and return the one chosen by the server. Returns nil and
 -- an error message in case of a server error.
@@ -756,6 +703,10 @@ local function find_ciphers(host, port, protocol)
   return results
 end
 
+-- ====================================
+--   Compression Detection Functions
+-- ====================================
+
 local function find_compressors(host, port, protocol, good_ciphers)
   local compressors = sorted_keys(tls.COMPRESSORS)
   local t = {
@@ -833,13 +784,14 @@ local function find_compressors(host, port, protocol, good_ciphers)
   return results
 end
 
--- End of the ssl-enum-ciphers script ----------------------------------------------------------------
-
+-- ====================================
+--         Main Action Function
+-- ====================================
 
 action = function(host, port)
   -- 1. Obtain certificate information
   local status, cert = sslcert.getCertificate(host, port)
-  stdnse.debug(1, " *** Debugging: The status of the certificate IS %s ***********", status)
+  stdnse.debug(1, "[DEBUG] Certificate retrieval status: %s", status)
 
   if not status then
     return stdnse.format_output(false, "Failed to retrieve certificate")
@@ -850,7 +802,7 @@ action = function(host, port)
   local protocols_to_test = {"TLSv1.0", "TLSv1.1", "TLSv1.2"}
   
   for _, protocol in ipairs(protocols_to_test) do
-    stdnse.debug(1, "*** Debugging: Testing protocol: %s ***********", protocol)
+    stdnse.debug(1, "[DEBUG] Testing protocol: %s", protocol)
     local supported_ciphers, warnings = find_ciphers(host, port, protocol)
     
     if supported_ciphers then
@@ -858,9 +810,9 @@ action = function(host, port)
         ciphers = supported_ciphers,
         warnings = warnings
       }
-      stdnse.debug(1, "*** Debugging: Found %d supported ciphers for %s ***********", #supported_ciphers, protocol)
+      stdnse.debug(1, "[DEBUG] Found %d supported ciphers for %s", #supported_ciphers, protocol)
     else
-      stdnse.debug(1, "*** Debugging: No supported ciphers found for %s ***********", protocol)
+      stdnse.debug(1, "[DEBUG] No supported ciphers found for %s", protocol)
     end
   end
 
@@ -924,7 +876,7 @@ action = function(host, port)
   end
 
   -- Valid certificate public key type and size
-  local valid_type, reason = valid_certificate_type(cert)
+  local valid_type, reason = validate_certificate_key(cert)
   if not valid_type then
     table.insert(alerts.high, reason)
   end
@@ -934,7 +886,7 @@ action = function(host, port)
   -- ====================================
 
   -- Adequate certificate lifespan
-  local cert_lifespan = get_cert_lifespan_in_days(cert)
+  local cert_lifespan = get_cert_lifespan_days(cert)
   if cert_lifespan == -1 then
     table.insert(alerts.medium, "Certificate has an invalid lifespan.")
   elseif cert_lifespan < 90 then
@@ -946,7 +898,7 @@ action = function(host, port)
   end
 
   -- Domain matching
-  local domain_match, reason = domain_name_matching(host.targetname or host.ip, cert)
+  local domain_match, reason = validate_domain_match(host.targetname or host.ip, cert)
   if not domain_match then
     table.insert(alerts.medium, reason)
   end
@@ -956,7 +908,7 @@ action = function(host, port)
   -- ====================================
 
   -- Avoid non-qualified host names in certificate
-  local non_qualified_hosts_list = is_non_qualified_host(cert)
+  local non_qualified_hosts_list = get_non_qualified_hosts(cert)
   if #non_qualified_hosts_list > 0 then
     local alert_message = "Certificate contains non-qualified host names in CN or SAN: " .. 
                          table.concat(non_qualified_hosts_list, ", ")
@@ -964,7 +916,7 @@ action = function(host, port)
   end
 
   -- Avoid IP addresses in certificate
-  local ip_findings = contains_ip(cert)
+  local ip_findings = get_ip_addresses(cert)
   if #ip_findings > 0 then
     local alert_message = "Certificate contains IP addresses in CN or SAN: " .. 
                          table.concat(ip_findings, ", ")
@@ -976,8 +928,7 @@ action = function(host, port)
   -- ====================================
 
   -- HSTS Header Check
-  local path = stdnse.get_script_args(SCRIPT_NAME .. ".path") or "/"
-  local http_response = http.get(host, port, path)
+  local http_response = http.get(host, port, "/")
 
   if http_response and http_response.header then
     local header_hsts = http_response.header["strict-transport-security"]
@@ -987,11 +938,11 @@ action = function(host, port)
         local max_age = tonumber(max_age_str)
         if max_age < 63072000 then
           table.insert(alerts.medium, 
-            string.format("HSTS max-age is less than 2 years: %d seconds", max_age))
+            string.format("[ENHANCED] HSTS max-age is less than 2 years: %d seconds", max_age))
         end
       end
     else
-      table.insert(alerts.high, "HSTS header is not set in HTTPS server")
+      table.insert(alerts.high, "[ENHANCED] HSTS header is not set in HTTPS server")
     end
 
     -- Server Information Disclosure
@@ -999,13 +950,13 @@ action = function(host, port)
     if #server_info_alerts > 0 then
       for _, alert in ipairs(server_info_alerts) do
         table.insert(alerts.medium, string.format(
-          "Server information disclosure in %s header: %s (version: %s)", 
+          "[ENHANCED] Server information disclosure in %s header: %s (version: %s)", 
           alert.header, alert.value, alert.version
         ))
       end
     end
   else
-    stdnse.debug(1, " *** Debugging: HTTP request failed or no headers received ***********")
+    stdnse.debug(1, "[DEBUG] HTTP request failed or no headers received")
   end
 
 -- TLS Curves
@@ -1015,15 +966,15 @@ action = function(host, port)
 -- TO DO
 
   -- Wildcard Certificate Scope
-  local wildcard_findings = wildcard_included(cert, alerts)
+  local wildcard_findings = get_wildcard_domains(cert)
   if #wildcard_findings > 0 then
-    local alert_message = "Wildcard certificate scope: The following domains in CN or SAN use wildcards: " .. 
+    local alert_message = "[ENHANCED] Wildcard certificate scope: The following domains in CN or SAN use wildcards: " .. 
                          table.concat(wildcard_findings, ", ")
     table.insert(alerts.low, alert_message)
   end
 
   -- CN and SAN Attributes
-  local cn_and_san_compatible, reason = cn_and_san_compatibility(cert)
+  local cn_and_san_compatible, reason = validate_cn_san_compatibility(cert)
   if not cn_and_san_compatible then
     table.insert(alerts.low, reason)
   end
@@ -1033,9 +984,9 @@ action = function(host, port)
     local ciphers = data.ciphers
     local entity, err = find_cipher_preference(host, port, protocol, ciphers)
     if not entity then
-      stdnse.debug(1, " *** Debugging: Could not determine cipher preference: %s ***********", err)
+      stdnse.debug(1, "[DEBUG] Could not determine cipher preference: %s", err)
     elseif entity == "client" then
-      table.insert(alerts.low, "Server follows client cipher preference")
+      table.insert(alerts.low, "[ENHANCED] Server follows client cipher preference")
       break
     end
   end
@@ -1043,14 +994,13 @@ action = function(host, port)
   -- 4. Output formatting
   local result = format_alerts(alerts)
   
-  -- Add summary of found ciphers for debugging
-    for protocol, data in pairs(all_supported_ciphers) do
-        stdnse.debug(1, "Supported ciphers for %s: %d", protocol, #data.ciphers)
-        for i, cipher in ipairs(data.ciphers) do
-            stdnse.debug(2, "  [%d] %s", i, cipher)
-        end
+  -- Debug: summary of supported ciphers
+  for protocol, data in pairs(all_supported_ciphers) do
+    stdnse.debug(1, "[DEBUG] Supported ciphers for %s: %d", protocol, #data.ciphers)
+    for i, cipher in ipairs(data.ciphers) do
+      stdnse.debug(2, "[DEBUG]   [%d] %s", i, cipher)
     end
-
+  end
   
   return stdnse.format_output(true, result)
 end
