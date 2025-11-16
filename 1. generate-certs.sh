@@ -34,7 +34,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Create certificates directory
-echo -e "${YELLOW}[1/10] Creating certificates directory...${NC}"
+echo -e "${YELLOW}[1/8] Creating certificates directory...${NC}"
 mkdir -p "$CERTS_DIR"
 cd "$CERTS_DIR"
 
@@ -42,13 +42,13 @@ cd "$CERTS_DIR"
 # Step 1: Generate Certificate Authority (CA)
 # ==============================================================================
 if [ -f "$CA_KEY" ] && [ -f "$CA_CERT" ]; then
-    echo -e "${BLUE}[2/10] CA certificate already exists, skipping...${NC}"
-    echo -e "${BLUE}[3/10] CA certificate already exists, skipping...${NC}"
+    echo -e "${BLUE}[2/8] CA certificate already exists, skipping...${NC}"
+    echo -e "${BLUE}[3/8] CA certificate already exists, skipping...${NC}"
 else
-    echo -e "${YELLOW}[2/10] Generating CA private key (4096 bits)...${NC}"
+    echo -e "${YELLOW}[2/8] Generating CA private key (4096 bits)...${NC}"
     openssl genrsa -out "$CA_KEY" 4096 2>/dev/null
 
-    echo -e "${YELLOW}[3/10] Generating CA certificate (valid for 10 years)...${NC}"
+    echo -e "${YELLOW}[3/8] Generating CA certificate (valid for 10 years)...${NC}"
     openssl req -new -x509 -days $DAYS_CA -key "$CA_KEY" -out "$CA_CERT" \
       -subj "/C=ES/ST=Malaga/L=Huelin/O=BoqueronCA/CN=my trusted boqueron ca" 2>/dev/null
 
@@ -60,9 +60,9 @@ echo ""
 # Certificate 1: Baseline "Good" Certificate (RSA 2048, 180 days)
 # ==============================================================================
 if [ -f "cert1-key.pem" ] && [ -f "cert1-cert.pem" ]; then
-    echo -e "${BLUE}[4/10] cert1 already exists, skipping...${NC}"
+    echo -e "${BLUE}[4/8] cert1 already exists, skipping...${NC}"
 else
-    echo -e "${YELLOW}[4/10] Generating cert1 (Baseline Good - RSA 2048)...${NC}"
+    echo -e "${YELLOW}[4/8] Generating cert1 (Baseline Good - RSA 2048)...${NC}"
 
     # Generate private key
     openssl genrsa -out cert1-key.pem 2048 2>/dev/null
@@ -92,9 +92,9 @@ echo ""
 # Certificate 2: Weak Key (RSA 1024)
 # ==============================================================================
 if [ -f "cert2-key.pem" ] && [ -f "cert2-cert.pem" ]; then
-    echo -e "${BLUE}[5/10] cert2 already exists, skipping...${NC}"
+    echo -e "${BLUE}[5/8] cert2 already exists, skipping...${NC}"
 else
-    echo -e "${YELLOW}[5/10] Generating cert2 (Weak Key - RSA 1024)...${NC}"
+    echo -e "${YELLOW}[5/8] Generating cert2 (Weak Key - RSA 1024)...${NC}"
 
     # Generate weak private key (1024 bits)
     openssl genrsa -out cert2-key.pem 1024 2>/dev/null
@@ -124,9 +124,9 @@ echo ""
 # Certificate 3: Self-Signed with Misconfigurations
 # ==============================================================================
 if [ -f "cert3-key.pem" ] && [ -f "cert3-cert.pem" ]; then
-    echo -e "${BLUE}[6/10] cert3 already exists, skipping...${NC}"
+    echo -e "${BLUE}[6/8] cert3 already exists, skipping...${NC}"
 else
-    echo -e "${YELLOW}[6/10] Generating cert3 (Self-Signed with IP/non-qualified hostname)...${NC}"
+    echo -e "${YELLOW}[6/8] Generating cert3 (Self-Signed with IP/non-qualified hostname)...${NC}"
 
     # Generate private key
     openssl genrsa -out cert3-key.pem 2048 2>/dev/null
@@ -144,9 +144,9 @@ echo ""
 # Certificate 4: Wildcard Certificate (ECDSA P-256)
 # ==============================================================================
 if [ -f "cert4-key.pem" ] && [ -f "cert4-cert.pem" ]; then
-    echo -e "${BLUE}[7/10] cert4 already exists, skipping...${NC}"
+    echo -e "${BLUE}[7/8] cert4 already exists, skipping...${NC}"
 else
-    echo -e "${YELLOW}[7/10] Generating cert4 (Wildcard - ECDSA P-256)...${NC}"
+    echo -e "${YELLOW}[7/8] Generating cert4 (Wildcard - ECDSA P-256)...${NC}"
 
     # Generate ECDSA private key (P-256)
     openssl ecparam -name prime256v1 -genkey -out cert4-key.pem 2>/dev/null
@@ -173,29 +173,9 @@ fi
 echo ""
 
 # ==============================================================================
-# Generate DH Parameters
-# ==============================================================================
-if [ -f "dhparams1024.pem" ]; then
-    echo -e "${BLUE}[8/10] dhparams1024.pem already exists, skipping...${NC}"
-else
-    echo -e "${YELLOW}[8/10] Generating DH parameters (1024 bits - weak)...${NC}"
-    openssl dhparam -out dhparams1024.pem 1024 2>/dev/null
-    echo -e "${GREEN}✓ dhparams1024.pem created${NC}"
-fi
-
-if [ -f "dhparams2048.pem" ]; then
-    echo -e "${BLUE}[9/10] dhparams2048.pem already exists, skipping...${NC}"
-else
-    echo -e "${YELLOW}[9/10] Generating DH parameters (2048 bits - strong)...${NC}"
-    openssl dhparam -out dhparams2048.pem 2048 2>/dev/null
-    echo -e "${GREEN}✓ dhparams2048.pem created${NC}"
-fi
-echo ""
-
-# ==============================================================================
 # Clean up intermediate files
 # ==============================================================================
-echo -e "${YELLOW}[10/10] Cleaning up intermediate files...${NC}"
+echo -e "${YELLOW}[8/8] Cleaning up intermediate files...${NC}"
 rm -f *.csr *.ext *.srl
 echo -e "${GREEN}✓ Cleanup complete${NC}"
 echo ""
@@ -229,25 +209,30 @@ echo -e "  ${BLUE}cert4 (Wildcard):${NC}"
 echo -e "    - cert4-cert.pem (ECDSA P-256, wildcard *.example.org, CA-signed)"
 echo -e "    - cert4-key.pem"
 echo ""
-echo -e "  ${BLUE}DH Parameters:${NC}"
-echo -e "    - dhparams1024.pem (1024 bits - weak, for testing)"
-echo -e "    - dhparams2048.pem (2048 bits - strong)"
-echo ""
+
 
 # Quick verification
 echo -e "${YELLOW}Quick verification:${NC}"
 echo ""
-echo -e "cert1 (RSA 2048):"
+echo -e "${BLUE}cert1 (RSA 2048):${NC}"
 openssl x509 -in cert1-cert.pem -noout -subject -issuer -dates | sed 's/^/  /'
+echo -e "  ${YELLOW}Extensions:${NC}"
+openssl x509 -in cert1-cert.pem -noout -ext subjectAltName,keyUsage,extendedKeyUsage 2>/dev/null | sed 's/^/    /' || echo "    (no extensions)"
 echo ""
-echo -e "cert2 (RSA 1024 - WEAK):"
+echo -e "${BLUE}cert2 (RSA 1024 - WEAK):${NC}"
 openssl x509 -in cert2-cert.pem -noout -subject -issuer -dates | sed 's/^/  /'
+echo -e "  ${YELLOW}Extensions:${NC}"
+openssl x509 -in cert2-cert.pem -noout -ext subjectAltName,keyUsage,extendedKeyUsage 2>/dev/null | sed 's/^/    /' || echo "    (no extensions)"
 echo ""
-echo -e "cert3 (Self-signed):"
+echo -e "${BLUE}cert3 (Self-signed):${NC}"
 openssl x509 -in cert3-cert.pem -noout -subject -issuer -dates | sed 's/^/  /'
+echo -e "  ${YELLOW}Extensions:${NC}"
+openssl x509 -in cert3-cert.pem -noout -ext subjectAltName,keyUsage,extendedKeyUsage 2>/dev/null | sed 's/^/    /' || echo "    (no extensions)"
 echo ""
-echo -e "cert4 (ECDSA P-256, Wildcard):"
+echo -e "${BLUE}cert4 (ECDSA P-256, Wildcard):${NC}"
 openssl x509 -in cert4-cert.pem -noout -subject -issuer -dates | sed 's/^/  /'
+echo -e "  ${YELLOW}Extensions:${NC}"
+openssl x509 -in cert4-cert.pem -noout -ext subjectAltName,keyUsage,extendedKeyUsage 2>/dev/null | sed 's/^/    /' || echo "    (no extensions)"
 echo ""
 
 echo -e "${GREEN}========================================${NC}"
