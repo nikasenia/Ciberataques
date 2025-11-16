@@ -111,6 +111,42 @@ local function has_cbc_or_sha(cipher_name)
   return false
 end
 
+-- Function to extract Subject Alternative Names from certificate
+-- @param cert The certificate object
+-- @return table with list of SAN entries (e.g., {"DNS:localhost", "DNS:example.com"}) or empty table
+local function get_SAN(cert)
+  local san_list = {}
+  
+  if not cert.extensions then
+    return san_list
+  end
+  
+  -- Find Subject Alternative Name extension
+  for k, v in pairs(cert.extensions) do
+    if type(v) == "table" then
+      for k2, v2 in pairs(v) do
+        -- Look for X509v3 Subject Alternative Name
+        if k2 == "name" and string.find(v2, "Subject Alternative Name") then
+          local san_value = v.value
+          if san_value then
+            -- Parse SAN value: "DNS:localhost, DNS:www.example.com, IP:192.168.1.1"
+            for san_entry in string.gmatch(san_value, "([^,]+)") do
+              -- Trim whitespace and add to list
+              san_entry = san_entry:match("^%s*(.-)%s*$")
+              if san_entry ~= "" then
+                table.insert(san_list, san_entry)
+              end
+            end
+          end
+          return san_list
+        end
+      end
+    end
+  end
+  
+  return san_list
+end
+
 -- Function to check for non-qualified host names in certificate
 -- @param cert The certificate object
 -- @return true and alert message if non-qualified host found, false otherwise
@@ -123,11 +159,12 @@ local function is_non_qualified_host(cert)
     end
   end
 
-  if cert.extensions and cert.extensions.subjectAltName then
-    for _, san in ipairs(cert.extensions.subjectAltName) do
-      if not string.find(san, "%.") then
-        table.insert(non_qualified_findings, san)
-      end 
+  local san_list = get_SAN(cert)
+  for _, san in ipairs(san_list) do
+    -- Extract domain from DNS: or IP: prefix
+    local domain = san:match("^DNS:(.+)") or san:match("^IP:(.+)") or san
+    if not string.find(domain, "%.") then
+      table.insert(non_qualified_findings, domain)
     end
   end
 
@@ -151,11 +188,12 @@ local function contains_ip(cert)
     table.insert(ip_findings, cert.subject.commonName)
   end
 
-  if cert.extensions and cert.extensions.subjectAltName then
-    for _, san in ipairs(cert.extensions.subjectAltName) do
-      if is_ip(san) then
-        table.insert(ip_findings, san)
-      end 
+  local san_list = get_SAN(cert)
+  for _, san in ipairs(san_list) do
+    -- Extract domain/IP from DNS: or IP: prefix
+    local value = san:match("^DNS:(.+)") or san:match("^IP:(.+)") or san
+    if is_ip(value) then
+      table.insert(ip_findings, value)
     end
   end
 
@@ -229,10 +267,14 @@ local function domain_name_matching(host_name,cert)
   if host_name ~= cert.subject.commonName then
     return false, string.format("Domain Name Matching: Host name %s does not match certificate CN %s", host_name, cert.subject.commonName)
   end
-  if cert.extensions and cert.extensions.subjectAltName then
+  
+  local san_list = get_SAN(cert)
+  if #san_list > 0 then
     local san_match = false
-    for _, san in ipairs(cert.extensions.subjectAltName) do
-      if host_name == san then
+    for _, san in ipairs(san_list) do
+      -- Extract domain from DNS: or IP: prefix
+      local domain = san:match("^DNS:(.+)") or san:match("^IP:(.+)") or san
+      if host_name == domain then
         san_match = true
         break
       end
@@ -338,13 +380,13 @@ local function wildcard_included(cert, alerts)
   end
   
   -- check SAN for wildcards
-  if cert.extensions and cert.extensions.subjectAltName then
-    for _, san in ipairs(cert.extensions.subjectAltName) do
-      if string.find(san, "%*") then
-        table.insert(wildcard_findings, san)
-      end
+  local san_list = get_SAN(cert)
+  for _, san in ipairs(san_list) do
+    if string.find(san, "%*") then
+      table.insert(wildcard_findings, san)
     end
   end
+  
   return wildcard_findings
 end
 
@@ -358,39 +400,20 @@ local function cn_and_san_compatibility(cert)
     return false, string.format("CN and SAN Attributes: Common Name is empty or nil.")
   end
  
-  -- Find Subject Alternative Name extension
-  local san_value = nil
-  if cert.extensions then
-      for k, v in pairs(cert.extensions) do          
-          if type(v) == "table" then
-              for k2, v2 in pairs(v) do
-                  -- Look for X509v3 Subject Alternative Name
-                  if k2 == "name" and string.find(v2, "Subject Alternative Name") then
-                      san_value = v.value
-                  end
-              end
-          end
-      end
+  local san_list = get_SAN(cert)
+  
+  if #san_list == 0 then
+    return false, string.format("CN and SAN Attributes: No Subject Alternative Name extension found.")
   end
   
-  if not san_value then
-      return false, string.format("CN and SAN Attributes: No Subject Alternative Name extension found.")
-  end
-  
-  -- Parse SAN value and check if CN is present
-  
-  for san_entry in string.gmatch(san_value, "([^,]+)") do
-      -- Trim whitespace
-      san_entry = san_entry:match("^%s*(.-)%s*$")
-      
-      -- Extract domain from DNS: or IP: prefix
-      local domain = san_entry:match("^DNS:(.+)") or san_entry:match("^IP:(.+)")
-      if domain then
-          if domain == cn then
-              stdnse.debug(1, "   CN matches SAN entry!")
-              return true, nil
-          end
-      end
+  -- Check if CN is present in SAN list
+  for _, san_entry in ipairs(san_list) do
+    -- Extract domain from DNS: or IP: prefix
+    local domain = san_entry:match("^DNS:(.+)") or san_entry:match("^IP:(.+)") or san_entry
+    if domain == cn then
+      stdnse.debug(1, "   ✅ CN matches SAN entry: %s", domain)
+      return true, nil
+    end
   end
 
   return false, string.format("CN and SAN Attributes: CN %s is not included in the SAN.", cn)
