@@ -33,7 +33,7 @@ local tls = require "tls"
 local http = require "http"
 
 -- Metadata
-author = "TO DO"
+author = "Ksenia Myakisheva, Ignacio Avila Reyes"
 license = "Same as Nmap--See https://nmap.org/book/man-legal.html"
 categories = {"vuln", "safe", "discovery"}
 portrule = shortport.ssl

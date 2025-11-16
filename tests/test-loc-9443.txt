@@ -1,0 +1,61 @@
+
+CyberAttack Techiques - Lab 1:  Vulnerable TLS Server
+Authors:
+    - Ignacio Ávila Reyes (100563569)
+    - Ksenia Myakisheva (100575673)
+
+TEST TO LOCALHOST:9443
+
+==========================
+        DESCRIPTION
+==========================
+These test has been performed over one of the gives apache servers on the 
+docker container. Specifically on port 9443.
+
+No parameter has been changed.
+
+==========================
+          INPUT
+==========================
+vulnTLSServer.nse
+
+==========================
+          OUTPUT
+==========================
+| vulnTLSServer: 
+|   
+|   **********************
+|   CRITICAL ALERTS: 1
+|   **********************
+|   - Cipher includes CBC mode or SHA hash algorithm.
+|   
+|   
+|   **********************
+|   HIGH ALERTS: 65
+|   **********************
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.1)
+|   - ...
+|   - ...
+|   - Unapproved TLS cipher: TLS_RSA_WITH_SEED_CBC_SHA (Protocol: TLSv1.0)
+|   - [ENHANCED] HSTS header is not set in HTTPS server
+|   
+|   
+|   **********************
+|   MEDIUM ALERTS: 2
+|   **********************
+|   - Certificate lifespan is -61 days (less than recommended 90 days)
+|   - Domain Name Matching: Host name localhost does not match CN internal.tc.uc3m.es
+|   
+|   
+|   **********************
+|   LOW ALERTS: 3
+|   **********************
+|   - Certificate contains non-qualified host names in CN or SAN: internal
+|   - [ENHANCED] CN and SAN Attributes: CN internal.tc.uc3m.es is not included in the SAN.
+|   - [ENHANCED] Server follows client cipher preference
+|_   
+
+==========================
+          COMMAND
+==========================
+nmap -p 9443 --script vulnTLSServer -oN test.out

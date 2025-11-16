@@ -1,0 +1,63 @@
+
+CyberAttack Techiques - Lab 1:  Vulnerable TLS Server
+Authors:
+    - Ignacio Ávila Reyes (100563569)
+    - Ksenia Myakisheva (100575673)
+
+TEST TO LOCALHOST:7004
+
+==========================
+        DESCRIPTION
+==========================
+Here we have performed a test over an apache server running
+on the port 7004 of the apache container we were given.
+
+Now the SSL parameters should not come up with any alert because
+strong cipher algorithms has been set, and HSTS has been properly configured. 
+
+It uses the next certificate
+cert4 (ECDSA P-256, Wildcard):
+  subject=C = ES, ST = Malaga, L = Huelin, O = WildcardBoqueron, CN = *.localhost
+  issuer=C = ES, ST = Malaga, L = Huelin, O = BoqueronCA, CN = my trusted boqueron ca        
+  notBefore=Nov 16 19:59:46 2025 GMT
+  notAfter=Nov 16 19:59:46 2026 GMT
+  Extensions:
+    X509v3 Subject Alternative Name: 
+        DNS:*.localhost, DNS:localhost
+    X509v3 Key Usage:
+        Digital Signature
+    X509v3 Extended Key Usage:
+        TLS Web Server Authentication
+
+This certificate involves the next vulnerabilities:
+- Presence of wildcards in both CN and SANs (non_qualified)
+- Domain name mismatching because it has been accessed from localhost != *.localhost
+
+==========================
+          INPUT
+==========================
+vulnTLSServer.nse
+
+==========================
+          OUTPUT
+==========================
+| vulnTLSServer: 
+|   
+|   **********************
+|   MEDIUM ALERTS: 1
+|   **********************
+|   - Domain Name Matching: Host name localhost does not match CN *.localhost
+|   
+|   
+|   **********************
+|   LOW ALERTS: 3
+|   **********************
+|   - Certificate contains non-qualified host names in CN or SAN: localhost
+|   - [ENHANCED] Wildcard certificate scope: The following domains in CN or SAN use wildcards: *.localhost, DNS:*.localhost
+|   - [ENHANCED] Server follows client cipher preference
+|_  
+
+==========================
+          COMMAND
+==========================
+nmap -p 7004 --script vulnTLSServer -oN test.out

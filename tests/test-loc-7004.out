@@ -1,0 +1,24 @@
+# Nmap 7.91 scan initiated Sun Nov 16 15:30:51 2025 as: nmap -p 7004 --script vulnTLSServer -oN tests/test-loc-7004.out localhost
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.000077s latency).
+Other addresses for localhost (not scanned): ::1
+
+PORT     STATE SERVICE
+7004/tcp open  afs3-kaserver
+| vulnTLSServer: 
+|   
+|   **********************
+|   MEDIUM ALERTS: 1
+|   **********************
+|   - Domain Name Matching: Host name localhost does not match CN *.localhost
+|   
+|   
+|   **********************
+|   LOW ALERTS: 3
+|   **********************
+|   - Certificate contains non-qualified host names in CN or SAN: localhost
+|   - [ENHANCED] Wildcard certificate scope: The following domains in CN or SAN use wildcards: *.localhost, DNS:*.localhost
+|   - [ENHANCED] Server follows client cipher preference
+|_  
+
+# Nmap done at Sun Nov 16 15:30:51 2025 -- 1 IP address (1 host up) scanned in 0.27 seconds

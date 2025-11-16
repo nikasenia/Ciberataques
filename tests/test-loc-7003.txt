@@ -1,0 +1,73 @@
+
+CyberAttack Techiques - Lab 1:  Vulnerable TLS Server
+Authors:
+    - Ignacio Ávila Reyes (100563569)
+    - Ksenia Myakisheva (100575673)
+
+TEST TO LOCALHOST:7003
+
+==========================
+        DESCRIPTION
+==========================
+Here we have performed a test over an apache server running
+on the port 7003 of the apache container we were given.
+
+The SSL related parameters that has been changed now involve:
+- Now the HSTS header has less than 2 years of max-age.
+- Ciphers that contains SHA hash algorithms (e.g. AES128-SHA)
+
+It uses the next certificate
+cert3 (Self-signed):
+  subject=C = ES, ST = Malaga, L = Huelin, O = SelfSignedEspeto, CN = 192.168.1.100
+  issuer=C = ES, ST = Malaga, L = Huelin, O = SelfSignedEspeto, CN = 192.168.1.100
+  notBefore=Nov 16 19:59:46 2025 GMT
+  notAfter=Nov 16 19:59:46 2026 GMT
+  Extensions:
+    X509v3 Subject Alternative Name: 
+        DNS:server, IP Address:192.168.1.100
+
+It is a self-signed certificate. It produces also a domain name mismatch (if 
+accessed for example from localhost). It includes an IP as CN and SAN (non_qualified)
+
+==========================
+          INPUT
+==========================
+vulnTLSServer.nse
+
+==========================
+          OUTPUT
+==========================
+| vulnTLSServer: 
+|   
+|   **********************
+|   CRITICAL ALERTS: 2
+|   **********************
+|   - Cipher includes CBC mode or SHA hash algorithm.
+|   - Self-signed certificate detected
+|   
+|   
+|   **********************
+|   HIGH ALERTS: 2
+|   **********************
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.2)
+|   
+|   
+|   **********************
+|   MEDIUM ALERTS: 2
+|   **********************
+|   - Domain Name Matching: Host name localhost does not match CN 192.168.1.100
+|   - [ENHANCED] HSTS max-age is less than 2 years: 31536000 seconds
+|   
+|   
+|   **********************
+|   LOW ALERTS: 3
+|   **********************
+|   - Certificate contains non-qualified host names in CN or SAN: server
+|   - Certificate contains IP addresses in CN or SAN: 192.168.1.100
+|_  
+
+==========================
+          COMMAND
+==========================
+nmap -p 7003 --script vulnTLSServer -oN test.out

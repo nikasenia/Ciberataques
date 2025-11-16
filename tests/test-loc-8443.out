@@ -1,0 +1,101 @@
+# Nmap 7.91 scan initiated Sun Nov 16 15:30:01 2025 as: nmap -p 8443 --script vulnTLSServer -oN tests/test-loc-8443.out localhost
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.000063s latency).
+Other addresses for localhost (not scanned): ::1
+
+PORT     STATE SERVICE
+8443/tcp open  https-alt
+| vulnTLSServer: 
+|   
+|   **********************
+|   CRITICAL ALERTS: 1
+|   **********************
+|   - Cipher includes CBC mode or SHA hash algorithm.
+|   
+|   
+|   **********************
+|   HIGH ALERTS: 65
+|   **********************
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_CAMELLIA_128_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_SEED_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_CAMELLIA_128_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_CAMELLIA_256_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_SEED_CBC_SHA (Protocol: TLSv1.0)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_CAMELLIA_128_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_SEED_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_CAMELLIA_128_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_CAMELLIA_256_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_SEED_CBC_SHA (Protocol: TLSv1.1)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_128_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_128_CCM (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_128_CCM_8 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_256_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_256_CCM (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_AES_256_CCM_8 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_ARIA_128_GCM_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_ARIA_256_GCM_SHA384 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_CAMELLIA_128_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_CAMELLIA_128_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_DHE_RSA_WITH_SEED_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_ARIA_128_GCM_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_ARIA_256_GCM_SHA384 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_CAMELLIA_128_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_ECDHE_RSA_WITH_CAMELLIA_256_CBC_SHA384 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_128_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_128_CCM (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_128_CCM_8 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_128_GCM_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_256_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_256_CCM (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_256_CCM_8 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_256_GCM_SHA384 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_ARIA_128_GCM_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_ARIA_256_GCM_SHA384 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_CAMELLIA_128_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_CAMELLIA_128_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_CAMELLIA_256_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_CAMELLIA_256_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_SEED_CBC_SHA (Protocol: TLSv1.2)
+|   - [ENHANCED] HSTS header is not set in HTTPS server
+|   
+|   
+|   **********************
+|   MEDIUM ALERTS: 2
+|   **********************
+|   - Certificate lifespan is -55 days (less than recommended 90 days)
+|   - Domain Name Matching: Host name localhost does not match CN tc.uc3m.es
+|   
+|   
+|   **********************
+|   LOW ALERTS: 3
+|   **********************
+|   - Certificate contains non-qualified host names in CN or SAN: localhost
+|   - [ENHANCED] Wildcard certificate scope: The following domains in CN or SAN use wildcards: DNS:*.tc.uc3m.es, DNS:*.test.tc.uc3m.es
+|   - [ENHANCED] Server follows client cipher preference
+|_  
+
+# Nmap done at Sun Nov 16 15:30:03 2025 -- 1 IP address (1 host up) scanned in 1.27 seconds

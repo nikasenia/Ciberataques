@@ -1,0 +1,74 @@
+
+CyberAttack Techiques - Lab 1:  Vulnerable TLS Server
+Authors:
+    - Ignacio Ávila Reyes (100563569)
+    - Ksenia Myakisheva (100575673)
+
+TEST TO LOCALHOST:7002
+
+==========================
+        DESCRIPTION
+==========================
+Here we have performed a test over an apache server running
+on the port 7002 of the apache container we were given.
+
+Now we have changed some parameters when setting the virtualhost 
+with apache. Among them:
+- No HSTS header
+- Ciphers that contains SHA hash algorithms (e.g. AES128-SHA)
+- Server follows the client cipher proposal.
+
+It uses the next certificate
+cert2:
+  subject=C = ES, ST = Malaga, L = Huelin, O = WeakBoqueron, CN = localhost
+  issuer=C = ES, ST = Malaga, L = Huelin, O = BoqueronCA, CN = my trusted boqueron ca        
+  notBefore=Nov 16 19:59:46 2025 GMT
+  notAfter=Nov 16 19:59:46 2026 GMT
+  Extensions:
+    X509v3 Subject Alternative Name: 
+        DNS:localhost, DNS:weak.boqueron.com
+    X509v3 Key Usage:
+        Digital Signature, Key Encipherment
+    X509v3 Extended Key Usage:
+        TLS Web Server Authentication
+
+That has also been created with a RSA 1024 bits length key.
+And again, another vulnerabilitie related to the certificate whould
+be the non_qualified_host alert.
+
+==========================
+          INPUT
+==========================
+vulnTLSServer.nse
+
+==========================
+          OUTPUT
+==========================
+| vulnTLSServer: 
+|   
+|   **********************
+|   CRITICAL ALERTS: 1
+|   **********************
+|   - Cipher includes CBC mode or SHA hash algorithm.
+|   
+|   **********************
+|   HIGH ALERTS: 6
+|   **********************
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_128_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_256_CBC_SHA256 (Protocol: TLSv1.2)
+|   - Weak RSA key size (minimum 2048 required): 1024 bits
+|   - [ENHANCED] HSTS header is not set in HTTPS server
+|   
+|   **********************
+|   LOW ALERTS: 2
+|   **********************
+|   - Certificate contains non-qualified host names in CN or SAN: localhost, localhost
+|   - [ENHANCED] Server follows client cipher preference
+|_  
+
+==========================
+          COMMAND
+==========================
+nmap -p 7002 --script vulnTLSServer -oN test.out

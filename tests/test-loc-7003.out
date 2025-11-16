@@ -1,0 +1,39 @@
+# Nmap 7.91 scan initiated Sun Nov 16 15:30:42 2025 as: nmap -p 7003 --script vulnTLSServer -oN tests/test-loc-7003.out localhost
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.000085s latency).
+Other addresses for localhost (not scanned): ::1
+
+PORT     STATE SERVICE
+7003/tcp open  afs3-vlserver
+| vulnTLSServer: 
+|   
+|   **********************
+|   CRITICAL ALERTS: 2
+|   **********************
+|   - Cipher includes CBC mode or SHA hash algorithm.
+|   - Self-signed certificate detected
+|   
+|   
+|   **********************
+|   HIGH ALERTS: 2
+|   **********************
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_128_CBC_SHA (Protocol: TLSv1.2)
+|   - Unapproved TLS cipher: TLS_RSA_WITH_AES_256_CBC_SHA (Protocol: TLSv1.2)
+|   
+|   
+|   **********************
+|   MEDIUM ALERTS: 2
+|   **********************
+|   - Domain Name Matching: Host name localhost does not match CN 192.168.1.100
+|   - [ENHANCED] HSTS max-age is less than 2 years: 31536000 seconds
+|   
+|   
+|   **********************
+|   LOW ALERTS: 3
+|   **********************
+|   - Certificate contains non-qualified host names in CN or SAN: server
+|   - Certificate contains IP addresses in CN or SAN: 192.168.1.100
+|   - [ENHANCED] CN and SAN Attributes: CN 192.168.1.100 is not included in the SAN.
+|_  
+
+# Nmap done at Sun Nov 16 15:30:42 2025 -- 1 IP address (1 host up) scanned in 0.28 seconds
