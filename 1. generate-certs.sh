@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # ==============================================================================
 # Certificate Generation Script for vulnTLSServer Testing
 # ==============================================================================
@@ -70,11 +69,11 @@ else
 
     # Create CSR
     openssl req -new -key cert1-key.pem -out cert1.csr \
-      -subj "/C=ES/ST=Malaga/L=Huelin/O=BoqueronSL/CN=secure.boqueron.com" 2>/dev/null
+      -subj "/C=ES/ST=Malaga/L=Huelin/O=BoqueronSL/CN=localhost" 2>/dev/null
 
     # Create SAN extension file
     cat > cert1-san.ext << EOF
-subjectAltName = DNS:secure.example.com,DNS:www.secure.example.com
+subjectAltName = DNS:localhost,DNS:www.secure.example.com
 basicConstraints = CA:FALSE
 keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
@@ -102,11 +101,11 @@ else
 
     # Create CSR
     openssl req -new -key cert2-key.pem -out cert2.csr \
-      -subj "/C=ES/ST=Malaga/L=Huelin/O=WeakBoqueron/CN=weak.boqueron.com" 2>/dev/null
+      -subj "/C=ES/ST=Malaga/L=Huelin/O=WeakBoqueron/CN=localhost" 2>/dev/null
 
     # Create SAN extension file
     cat > cert2-san.ext << EOF
-subjectAltName = DNS:weak.example.com
+subjectAltName = DNS:localhost,DNS:weak.boqueron.com
 basicConstraints = CA:FALSE
 keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
@@ -154,11 +153,11 @@ else
 
     # Create CSR with wildcard
     openssl req -new -key cert4-key.pem -out cert4.csr \
-      -subj "/C=ES/ST=Malaga/L=Huelin/O=WildcardBoqueron/CN=*.boqueron.org" 2>/dev/null
+      -subj "/C=ES/ST=Malaga/L=Huelin/O=WildcardBoqueron/CN=*.localhost" 2>/dev/null
 
     # Create SAN extension file with wildcard
     cat > cert4-san.ext << EOF
-subjectAltName = DNS:*.boqueron.org,DNS:boqueron.org
+subjectAltName = DNS:*.localhost,DNS:localhost
 basicConstraints = CA:FALSE
 keyUsage = digitalSignature
 extendedKeyUsage = serverAuth

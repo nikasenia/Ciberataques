@@ -357,14 +357,40 @@ local function cn_and_san_compatibility(cert)
   if not cn then
     return false, string.format("CN and SAN Attributes: Common Name is empty or nil.")
   end
-
-
-  if cert.extensions and cert.extensions.subjectAltName then
-    for _, san in ipairs(cert.extensions.subjectAltName) do
-      if cn == san then
-        return true, nil
+ 
+  -- Find Subject Alternative Name extension
+  local san_value = nil
+  if cert.extensions then
+      for k, v in pairs(cert.extensions) do          
+          if type(v) == "table" then
+              for k2, v2 in pairs(v) do
+                  -- Look for X509v3 Subject Alternative Name
+                  if k2 == "name" and string.find(v2, "Subject Alternative Name") then
+                      san_value = v.value
+                  end
+              end
+          end
       end
-    end
+  end
+  
+  if not san_value then
+      return false, string.format("CN and SAN Attributes: No Subject Alternative Name extension found.")
+  end
+  
+  -- Parse SAN value and check if CN is present
+  
+  for san_entry in string.gmatch(san_value, "([^,]+)") do
+      -- Trim whitespace
+      san_entry = san_entry:match("^%s*(.-)%s*$")
+      
+      -- Extract domain from DNS: or IP: prefix
+      local domain = san_entry:match("^DNS:(.+)") or san_entry:match("^IP:(.+)")
+      if domain then
+          if domain == cn then
+              stdnse.debug(1, "   CN matches SAN entry!")
+              return true, nil
+          end
+      end
   end
 
   return false, string.format("CN and SAN Attributes: CN %s is not included in the SAN.", cn)
@@ -787,12 +813,10 @@ end
 -- End of the ssl-enum-ciphers script ----------------------------------------------------------------
 
 
-
-
 action = function(host, port)
   -- 1. Obtain certificate information
   local status, cert = sslcert.getCertificate(host, port)
-  stdnse.debug(1, " *** Debugging: The status of the certificate is %s ***********", status)
+  stdnse.debug(1, " *** Debugging: The status of the certificate IS %s ***********", status)
 
   if not status then
     return stdnse.format_output(false, "Failed to retrieve certificate")
@@ -803,7 +827,7 @@ action = function(host, port)
   local protocols_to_test = {"TLSv1.0", "TLSv1.1", "TLSv1.2"}
   
   for _, protocol in ipairs(protocols_to_test) do
-    stdnse.debug(1, "Testing protocol: %s", protocol)
+    stdnse.debug(1, "*** Debugging: Testing protocol: %s ***********", protocol)
     local supported_ciphers, warnings = find_ciphers(host, port, protocol)
     
     if supported_ciphers then
@@ -811,9 +835,9 @@ action = function(host, port)
         ciphers = supported_ciphers,
         warnings = warnings
       }
-      stdnse.debug(1, "Found %d supported ciphers for %s", #supported_ciphers, protocol)
+      stdnse.debug(1, "*** Debugging: Found %d supported ciphers for %s ***********", #supported_ciphers, protocol)
     else
-      stdnse.debug(1, "No supported ciphers found for %s", protocol)
+      stdnse.debug(1, "*** Debugging: No supported ciphers found for %s ***********", protocol)
     end
   end
 
